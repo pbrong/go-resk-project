@@ -1,0 +1,4 @@
+server:
+  name: viper-test
+  port: 8804
+  enable: true
