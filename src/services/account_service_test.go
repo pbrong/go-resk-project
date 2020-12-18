@@ -13,8 +13,8 @@ import (
 func TestAccountService_CreateAccount(t *testing.T) {
 	Convey("TestAccountService_CreateAccount", t, func() {
 		accountService := GetAccountService()
-		accountCreatedDTO := accountLogDTO.AccountCreatedDTO{
-			UserId:       "test_id",
+		accountCreatedDTO := dto.AccountCreatedDTO{
+			UserId:       "test_id12",
 			Username:     "test_username",
 			AccountName:  "test_account",
 			AccountType:  0,

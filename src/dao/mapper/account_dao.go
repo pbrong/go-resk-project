@@ -17,6 +17,7 @@ func NewAccountDao(runner *dbx.TxRunner) *AccountDao {
 
 func (dao *AccountDao) GetOne(accountNo string) *Account {
 	account := &Account{}
+	account.AccountNo = accountNo
 	ok, err := dao.runner.GetOne(account)
 	if err != nil {
 		logrus.Error(err)

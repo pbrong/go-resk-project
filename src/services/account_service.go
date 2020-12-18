@@ -5,12 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"github.com/shopspring/decimal"
-	"github.com/tietang/dbx"
-	"go-resk/src/dao/mapper"
+	"github.com/sirupsen/logrus"
+	"go-resk/src/entity/do"
 	. "go-resk/src/entity/dto"
 	"go-resk/src/entity/po"
 	. "go-resk/src/entity/service_flag"
-	"go-resk/src/infra/base"
 	"go-resk/src/utils"
 	"sync"
 	"time"
@@ -33,37 +32,43 @@ type IAccountService interface {
 
 type AccountService struct{}
 
+var _ IAccountService = new(AccountService)
+
 // 账户创建
 func (service AccountService) CreateAccount(accountCreateDto AccountCreatedDTO) (*AccountDTO, error) {
 	err := utils.StructValidate(accountCreateDto)
 	if err != nil {
 		return nil, err
 	}
-	accountPo, err := FromAccountCreatedDTO2AccountPO(accountCreateDto)
+	domain := new(do.AccountDomain)
+	// 验证账户是否存在和幂等性
+	acc := domain.GetAccountByUserIdAndType(accountCreateDto.UserId, AccountType(accountCreateDto.AccountType))
+	if acc != nil {
+		return acc, errors.New(
+			fmt.Sprintf("用户的该类型账户已经存在：username=%s[%s],账户类型=%d",
+				accountCreateDto.Username, accountCreateDto.UserId, accountCreateDto.AccountType))
+
+	}
+	// 执行账户创建的业务逻辑
+	amount, err := decimal.NewFromString(accountCreateDto.Amount)
 	if err != nil {
 		return nil, err
 	}
-	err = base.DbxDatabase().Tx(func(tx *dbx.TxRunner) error {
-		accountDao := mapper.NewAccountDao(tx)
-		existAccount := accountDao.GetByUserId(accountCreateDto.UserId, 0)
-		if existAccount != nil {
-			return errors.New(
-				fmt.Sprintf("can't create account because the account is existed：username=%s[%s],账户类型=%d",
-					accountCreateDto.Username, accountCreateDto.UserId, accountCreateDto.AccountType))
-		}
-		id, err := accountDao.Insert(accountPo)
-		if id <= 0 {
-			return errors.New("Id small than zero")
-		}
-		if err != nil {
-			return err
-		}
-		return nil
-	})
+	accountDTO := AccountDTO{
+		UserId:       accountCreateDto.UserId,
+		Username:     accountCreateDto.Username,
+		AccountType:  accountCreateDto.AccountType,
+		AccountName:  accountCreateDto.AccountName,
+		CurrencyCode: accountCreateDto.CurrencyCode,
+		Status:       1,
+		Balance:      amount,
+	}
+	dto, err := domain.Create(accountDTO)
 	if err != nil {
+		logrus.Error(err)
 		return nil, err
 	}
-	return &AccountDTO{UserId: accountCreateDto.UserId}, nil
+	return dto, err
 }
 
 // 将AccountCreatedDTO转化为AccountPO

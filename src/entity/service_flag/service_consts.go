@@ -34,3 +34,11 @@ const (
 	EUR CurrencyCode = "EUR"
 	USD CurrencyCode = "USD"
 )
+
+//账户类型
+type AccountType int
+
+const (
+	EnvelopeAccountType       AccountType = 1
+	SystemEnvelopeAccountType AccountType = 2
+)

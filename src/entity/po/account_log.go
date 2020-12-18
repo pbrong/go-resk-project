@@ -66,3 +66,17 @@ func (po *AccountLog) FromDTO(accountLogDTO *dto.AccountLogDTO) {
 	po.Decs = accountLogDTO.Decs
 	po.CreatedAt = accountLogDTO.CreatedAt
 }
+
+func (po *AccountLog) FromTransferDTO(transferDTO *dto.AccountTransferDTO) {
+	po.TradeNo = transferDTO.TradeNo
+	po.AccountNo = transferDTO.TradeBody.AccountNo
+	po.TargetAccountNo = transferDTO.TradeTarget.AccountNo
+	po.UserId = transferDTO.TradeBody.UserId
+	po.Username = transferDTO.TradeBody.Username
+	po.TargetUserId = transferDTO.TradeTarget.UserId
+	po.TargetUsername = transferDTO.TradeTarget.Username
+	po.Amount = transferDTO.Amount
+	po.ChangeType = transferDTO.ChangeType
+	po.ChangeFlag = transferDTO.ChangeFlag
+	po.Decs = transferDTO.Decs
+}

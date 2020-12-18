@@ -66,11 +66,10 @@ func (domain *AccountDomain) Create(
 	domain.account.Username.Valid = true
 	//创建账户流水持久化对象
 	domain.createAccountLog()
-	accountDao := mapper.AccountDao{}
-	accountLogDao := mapper.AccountLogDao{}
 	var rdto *dto.AccountDTO
 	err := base.DbxDatabase().Tx(func(runner *dbx.TxRunner) error {
 		accountDao := mapper.NewAccountDao(runner)
+		accountLogDao := mapper.NewAccountLogDao(runner)
 		//插入账户数据
 		id, err := accountDao.Insert(&domain.account)
 		if err != nil {
@@ -87,12 +86,19 @@ func (domain *AccountDomain) Create(
 		if id <= 0 {
 			return errors.New("创建账户流水失败")
 		}
-		domain.account = *accountDao.GetOne(domain.account.AccountNo)
+		//domain.account = *accountDao.GetOne(domain.account.AccountNo)
 		return nil
 	})
+	if err == nil {
+		err = base.DbxDatabase().Tx(func(runner *dbx.TxRunner) error {
+			accountDao := mapper.NewAccountDao(runner)
+			accountPoRes := accountDao.GetOne(domain.account.AccountNo)
+			domain.account = *accountPoRes
+			return nil
+		})
+	}
 	rdto = domain.account.ToDTO()
 	return rdto, err
-
 }
 
 func (a *AccountDomain) Transfer(transferDTO dto.AccountTransferDTO) (status service_flag.TransferedStatus, err error) {
@@ -177,7 +183,7 @@ func (a *AccountDomain) GetEnvelopeAccountByUserId(userId string) *dto.AccountDT
 }
 
 // 根据用户ID和账户类型来查询账户信息
-func (a *AccountDomain) GetAccountByUserIdAndType(userId string, accountType services.AccountType) *services.AccountDTO {
+func (a *AccountDomain) GetAccountByUserIdAndType(userId string, accountType service_flag.AccountType) *dto.AccountDTO {
 	var account *Account
 	err := base.DbxDatabase().Tx(func(runner *dbx.TxRunner) error {
 		accountDao := mapper.NewAccountDao(runner)
@@ -196,10 +202,9 @@ func (a *AccountDomain) GetAccountByUserIdAndType(userId string, accountType ser
 
 // 根据流水ID来查询账户流水
 func (a *AccountDomain) GetAccountLog(logNo string) *dto.AccountLogDTO {
-	dao := AccountLogDao{}
 	var log *AccountLog
-	err := base.Tx(func(runner *dbx.TxRunner) error {
-		dao.runner = runner
+	err := base.DbxDatabase().Tx(func(runner *dbx.TxRunner) error {
+		dao := mapper.NewAccountLogDao(runner)
 		log = dao.GetOne(logNo)
 		return nil
 	})
@@ -214,11 +219,10 @@ func (a *AccountDomain) GetAccountLog(logNo string) *dto.AccountLogDTO {
 }
 
 // 根据交易编号来查询账户流水
-func (a *AccountDomain) GetAccountLogByTradeNo(tradeNo string) *services.AccountLogDTO {
-	dao := AccountLogDao{}
+func (a *AccountDomain) GetAccountLogByTradeNo(tradeNo string) *dto.AccountLogDTO {
 	var log *AccountLog
-	err := base.Tx(func(runner *dbx.TxRunner) error {
-		dao.runner = runner
+	err := base.DbxDatabase().Tx(func(runner *dbx.TxRunner) error {
+		dao := mapper.NewAccountLogDao(runner)
 		log = dao.GetByTradeNo(tradeNo)
 		return nil
 	})
