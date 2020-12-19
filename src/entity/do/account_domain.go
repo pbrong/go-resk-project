@@ -2,6 +2,7 @@ package do
 
 import (
 	"errors"
+	"fmt"
 	"github.com/shopspring/decimal"
 	"github.com/sirupsen/logrus"
 	"github.com/tietang/dbx"
@@ -86,55 +87,47 @@ func (domain *AccountDomain) Create(
 		if id <= 0 {
 			return errors.New("创建账户流水失败")
 		}
-		//domain.account = *accountDao.GetOne(domain.account.AccountNo)
+		domain.account = *accountDao.GetOne(domain.account.AccountNo)
 		return nil
 	})
-	if err == nil {
-		err = base.DbxDatabase().Tx(func(runner *dbx.TxRunner) error {
-			accountDao := mapper.NewAccountDao(runner)
-			accountPoRes := accountDao.GetOne(domain.account.AccountNo)
-			domain.account = *accountPoRes
-			return nil
-		})
-	}
 	rdto = domain.account.ToDTO()
 	return rdto, err
 }
 
-func (a *AccountDomain) Transfer(transferDTO dto.AccountTransferDTO) (status service_flag.TransferedStatus, err error) {
-	// 如果交易变化是支出，修正amount
+// 转账，扣减付款者的余额、增加收款者的余额，并记录流水付款及收款流水
+func (domain *AccountDomain) Transfer(transferDTO dto.AccountTransferDTO) (status service_flag.TransferedStatus, err error) {
+	if transferDTO.ChangeFlag != service_flag.CHANGE_FLAG_OUTCOME {
+		// 变化标示不为支出类型
+		return service_flag.TRANSFER_STATUS_FAILURE, errors.New(
+			fmt.Sprintf("转账时ChangeFlag需要为CHANGE_FLAG_OUTCOME, From:%+v, To:%+v",
+				transferDTO.TradeBody, transferDTO.TradeTarget))
+	}
+	if transferDTO.Amount.IsZero() {
+		return service_flag.TRANSFER_STATUS_FAILURE, errors.New(
+			fmt.Sprintf("转账时交易金额不可为0, From:%+v, To:%+v",
+				transferDTO.TradeBody, transferDTO.TradeTarget))
+	}
 	amount := transferDTO.Amount
-	if transferDTO.ChangeFlag == service_flag.CHANGE_FLAG_OUTCOME {
+	// 修正交易金额为负数
+	if amount.GreaterThan(decimal.NewFromFloat(0)) {
 		amount = amount.Mul(decimal.NewFromFloat(-1))
 	}
-	// 创建账户流水记录
-	a.accountLog = AccountLog{}
-	a.accountLog.FromTransferDTO(&transferDTO)
-	a.createAccountLogNo()
 	// 检查余额是否足够和更新余额：通过乐观锁来验证，更新余额的同时来验证余额是否足够
 	// 更新成功后，写入流水记录
 	err = base.DbxDatabase().Tx(func(runner *dbx.TxRunner) error {
 		accountDao := mapper.NewAccountDao(runner)
 		accountLogDao := mapper.NewAccountLogDao(runner)
-		rows, err := accountDao.UpdateBalance(transferDTO.TradeBody.AccountNo, amount)
+		// 扣减付款账户余额并生成支出流水
+		err = transferTo(accountDao, accountLogDao, domain, transferDTO, amount)
 		if err != nil {
-			status = service_flag.TRANSFER_STATUS_FAILURE
+			status = service_flag.TRANSFER_STATUS_SUCCESS
 			return err
 		}
-		if rows <= 0 && transferDTO.ChangeFlag == service_flag.CHANGE_FLAG_OUTCOME {
-			status = service_flag.TRANSFER_STATUS_FAILURE
-			return errors.New("余额不足")
-		}
-		account := accountDao.GetOne(transferDTO.TradeBody.AccountNo)
-		if account == nil {
-			return errors.New("账户出错")
-		}
-		a.account = *account
-		a.accountLog.Balance = a.account.Balance
-		id, err := accountLogDao.Insert(&a.accountLog)
-		if err != nil || id <= 0 {
-			status = service_flag.TRANSFER_STATUS_FAILURE
-			return errors.New("账户流水创建失败")
+		// 新增收款账户余额并生成收入流水
+		err = transferFrom(accountDao, accountLogDao, domain, transferDTO, amount)
+		if err != nil {
+			status = service_flag.TRANSFER_STATUS_SUCCESS
+			return err
 		}
 		return nil
 	})
@@ -147,8 +140,75 @@ func (a *AccountDomain) Transfer(transferDTO dto.AccountTransferDTO) (status ser
 	return status, err
 }
 
+// 账户2进行收款，新增账户2金额，并记录账户2收款流水
+func transferFrom(accountDao *mapper.AccountDao, accountLogDao *mapper.AccountLogDao, domain *AccountDomain, transferDTO dto.AccountTransferDTO, amount decimal.Decimal) error {
+	// 在收款场景中，发起对象为收款者，状态为收入
+	transferDTO.ChangeFlag = service_flag.CHANGE_FLAG_INCOME
+	transferDTO.ChangeType = service_flag.CHANGE_TYPE_INCOME
+	transferDTO.Decs = "收款"
+	transferDTO.TradeBody, transferDTO.TradeTarget =
+		transferDTO.TradeTarget, transferDTO.TradeBody
+	// 判断账户是否存在
+	account := accountDao.GetOne(transferDTO.TradeBody.AccountNo)
+	if account == nil {
+		return errors.New("账户不存在")
+	}
+	// 新增金额
+	if amount.LessThan(decimal.NewFromFloat(0)) {
+		amount = amount.Mul(decimal.NewFromFloat(-1))
+	}
+	rows, err := accountDao.UpdateBalance(transferDTO.TradeBody.AccountNo, amount)
+	if err != nil {
+		return err
+	}
+	if rows <= 0 {
+		return errors.New("增加金额错误")
+	}
+	// 创建账户流水记录
+	domain.accountLog = AccountLog{}
+	domain.accountLog.FromTransferDTO(&transferDTO)
+	domain.createAccountLogNo()
+	domain.account = *account
+	domain.accountLog.Balance = domain.account.Balance
+	// 新增收款流水
+	id, err := accountLogDao.Insert(&domain.accountLog)
+	if err != nil || id <= 0 {
+		return errors.New("账户流水创建失败")
+	}
+	return nil
+}
+
+// 账户1进行付款，减去账户1金额，并记录账户1付款流水
+func transferTo(accountDao *mapper.AccountDao, accountLogDao *mapper.AccountLogDao, domain *AccountDomain, transferDTO dto.AccountTransferDTO, amount decimal.Decimal) error {
+	// 判断账户是否存在
+	account := accountDao.GetOne(transferDTO.TradeBody.AccountNo)
+	if account == nil {
+		return errors.New("账户不存在")
+	}
+	// 扣款
+	rows, err := accountDao.UpdateBalance(transferDTO.TradeBody.AccountNo, amount)
+	if err != nil {
+		return err
+	}
+	if rows <= 0 && transferDTO.ChangeFlag == service_flag.CHANGE_FLAG_OUTCOME {
+		return errors.New("余额不足")
+	}
+	// 创建账户流水记录
+	domain.accountLog = AccountLog{}
+	domain.accountLog.FromTransferDTO(&transferDTO)
+	domain.createAccountLogNo()
+	domain.account = *account
+	domain.accountLog.Balance = domain.account.Balance
+	// 新增扣款流水
+	id, err := accountLogDao.Insert(&domain.accountLog)
+	if err != nil || id <= 0 {
+		return errors.New("账户流水创建失败")
+	}
+	return nil
+}
+
 // 根据账户编号来查询账户信息
-func (a *AccountDomain) GetAccount(accountNo string) *dto.AccountDTO {
+func (domain *AccountDomain) GetAccount(accountNo string) *dto.AccountDTO {
 	var account *Account
 	err := base.DbxDatabase().Tx(func(runner *dbx.TxRunner) error {
 		accountDao := mapper.NewAccountDao(runner)
@@ -165,7 +225,7 @@ func (a *AccountDomain) GetAccount(accountNo string) *dto.AccountDTO {
 }
 
 // 根据用户ID来查询红包账户信息
-func (a *AccountDomain) GetEnvelopeAccountByUserId(userId string) *dto.AccountDTO {
+func (domain *AccountDomain) GetEnvelopeAccountByUserId(userId string) *dto.AccountDTO {
 	var account *Account
 	err := base.DbxDatabase().Tx(func(runner *dbx.TxRunner) error {
 		accountDao := mapper.NewAccountDao(runner)
@@ -183,7 +243,7 @@ func (a *AccountDomain) GetEnvelopeAccountByUserId(userId string) *dto.AccountDT
 }
 
 // 根据用户ID和账户类型来查询账户信息
-func (a *AccountDomain) GetAccountByUserIdAndType(userId string, accountType service_flag.AccountType) *dto.AccountDTO {
+func (domain *AccountDomain) GetAccountByUserIdAndType(userId string, accountType service_flag.AccountType) *dto.AccountDTO {
 	var account *Account
 	err := base.DbxDatabase().Tx(func(runner *dbx.TxRunner) error {
 		accountDao := mapper.NewAccountDao(runner)
@@ -201,7 +261,7 @@ func (a *AccountDomain) GetAccountByUserIdAndType(userId string, accountType ser
 }
 
 // 根据流水ID来查询账户流水
-func (a *AccountDomain) GetAccountLog(logNo string) *dto.AccountLogDTO {
+func (domain *AccountDomain) GetAccountLog(logNo string) *dto.AccountLogDTO {
 	var log *AccountLog
 	err := base.DbxDatabase().Tx(func(runner *dbx.TxRunner) error {
 		dao := mapper.NewAccountLogDao(runner)
@@ -219,7 +279,7 @@ func (a *AccountDomain) GetAccountLog(logNo string) *dto.AccountLogDTO {
 }
 
 // 根据交易编号来查询账户流水
-func (a *AccountDomain) GetAccountLogByTradeNo(tradeNo string) *dto.AccountLogDTO {
+func (domain *AccountDomain) GetAccountLogByTradeNo(tradeNo string) *dto.AccountLogDTO {
 	var log *AccountLog
 	err := base.DbxDatabase().Tx(func(runner *dbx.TxRunner) error {
 		dao := mapper.NewAccountLogDao(runner)

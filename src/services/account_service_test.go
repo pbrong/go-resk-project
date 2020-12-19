@@ -14,7 +14,7 @@ func TestAccountService_CreateAccount(t *testing.T) {
 	Convey("TestAccountService_CreateAccount", t, func() {
 		accountService := GetAccountService()
 		accountCreatedDTO := dto.AccountCreatedDTO{
-			UserId:       "test_id12",
+			UserId:       "test_id12141",
 			Username:     "test_username",
 			AccountName:  "test_account",
 			AccountType:  0,

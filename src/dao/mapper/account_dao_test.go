@@ -1,4 +1,4 @@
-package test
+package mapper
 
 import (
 	"database/sql"
@@ -6,7 +6,6 @@ import (
 	"github.com/sirupsen/logrus"
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/tietang/dbx"
-	"go-resk/src/dao/mapper"
 	"go-resk/src/entity/po"
 	"go-resk/src/infra/base"
 	_ "go-resk/src/test"
@@ -19,7 +18,7 @@ import (
 
 func TestAccountDao_GetByUserId(t *testing.T) {
 	err := base.DbxDatabase().Tx(func(tx *dbx.TxRunner) error {
-		accountDao := mapper.NewAccountDao(tx)
+		accountDao := NewAccountDao(tx)
 		Convey("TestAccountDao_GetByUserId", t, func() {
 			account := accountDao.GetByUserId("test", 1)
 			if account != nil {
@@ -35,7 +34,7 @@ func TestAccountDao_GetByUserId(t *testing.T) {
 
 func TestAccountDao_GetOne(t *testing.T) {
 	err := base.DbxDatabase().Tx(func(tx *dbx.TxRunner) error {
-		accountDao := mapper.NewAccountDao(tx)
+		accountDao := NewAccountDao(tx)
 		Convey("TestAccountDao_GetOne", t, func() {
 			account := accountDao.GetOne("test")
 			if account != nil {
@@ -51,7 +50,7 @@ func TestAccountDao_GetOne(t *testing.T) {
 
 func TestAccountDao_Insert(t *testing.T) {
 	err := base.DbxDatabase().Tx(func(tx *dbx.TxRunner) error {
-		accountDao := mapper.NewAccountDao(tx)
+		accountDao := NewAccountDao(tx)
 		Convey("TestAccountDao_Insert", t, func() {
 			rand.Seed(time.Now().UnixNano())
 			x := rand.Int()
@@ -82,7 +81,7 @@ func TestAccountDao_Insert(t *testing.T) {
 
 func TestAccountDao_Update(t *testing.T) {
 	err := base.DbxDatabase().Tx(func(tx *dbx.TxRunner) error {
-		accountDao := mapper.NewAccountDao(tx)
+		accountDao := NewAccountDao(tx)
 		Convey("TestAccountDao_Update", t, func() {
 			rand.Seed(time.Now().UnixNano())
 			x := rand.Int()
@@ -113,7 +112,7 @@ func TestAccountDao_Update(t *testing.T) {
 
 func TestAccountDao_UpdateBalance(t *testing.T) {
 	err := base.DbxDatabase().Tx(func(tx *dbx.TxRunner) error {
-		accountDao := mapper.NewAccountDao(tx)
+		accountDao := NewAccountDao(tx)
 		Convey("TestAccountDao_UpdateBalance", t, func() {
 			newBanlace, err := decimal.NewFromString("100")
 			rows, err := accountDao.UpdateBalance("test", newBanlace)
@@ -133,7 +132,7 @@ func TestAccountDao_UpdateBalance(t *testing.T) {
 
 func TestAccountDao_UpdateStatus(t *testing.T) {
 	err := base.DbxDatabase().Tx(func(tx *dbx.TxRunner) error {
-		accountDao := mapper.NewAccountDao(tx)
+		accountDao := NewAccountDao(tx)
 		Convey("TestAccountDao_UpdateStatus", t, func() {
 			rows, err := accountDao.UpdateStatus("test", 2)
 			if err != nil {
@@ -152,7 +151,7 @@ func TestAccountDao_UpdateStatus(t *testing.T) {
 
 func TestAccountDao_Insert2(t *testing.T) {
 	err := base.DbxDatabase().Tx(func(tx *dbx.TxRunner) error {
-		accountDao := mapper.NewAccountDao(tx)
+		accountDao := NewAccountDao(tx)
 		account := &po.Account{
 			Id:        1,
 			AccountNo: "test",

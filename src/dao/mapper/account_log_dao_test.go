@@ -1,17 +1,16 @@
-package test
+package mapper
 
 import (
 	"github.com/sirupsen/logrus"
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/tietang/dbx"
-	"go-resk/src/dao/mapper"
 	"go-resk/src/infra/base"
 	"testing"
 )
 
 func TestAccountLogDao_GetByTradeNo(t *testing.T) {
 	err := base.DbxDatabase().Tx(func(tx *dbx.TxRunner) error {
-		dao := mapper.NewAccountLogDao(tx)
+		dao := NewAccountLogDao(tx)
 		Convey("TestAccountLogDao_GetByTradeNo", t, func() {
 			accountLog := dao.GetByTradeNo("test")
 			if accountLog != nil {

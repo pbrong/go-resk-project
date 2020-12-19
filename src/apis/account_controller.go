@@ -66,3 +66,24 @@ func createHandler(ctx context.Context) {
 	result.Data = dto
 	ctx.JSON(&result)
 }
+
+/**
+{
+	"TradeNo": "trade123456",
+	"TradeBody": {
+		"AccountNo": "1K5YdR5Cng5FsBaF95fkcRJE08v",
+		"UserId": "w123456-2",
+		"Username": "测试用户2"
+	},
+	"TradeTarget": {
+		"AccountNo": "1K5iy4IzhyywntWMeVlxKdxVn4G",
+		"UserId": "w123456-1",
+		"Username": "测试用户1"
+	},
+	"AmountStr": "1",
+	"ChangeType": -1,
+	"ChangeFlag": -1,
+	"Decs": "转出"
+}
+*/
+// 转账 :/v1/account/transfer
