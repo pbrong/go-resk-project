@@ -11,7 +11,6 @@ import (
 	"go-resk/src/entity/po"
 	. "go-resk/src/entity/service_flag"
 	"go-resk/src/utils"
-	"sync"
 	"time"
 )
 
@@ -108,11 +107,7 @@ func (service AccountService) GetAccount(accountNo string) *AccountDTO {
 	panic("implement me")
 }
 
-var once sync.Once
-
 // 初始化IAccountService
 func init() {
-	once.Do(func() {
-		accountService = new(AccountService)
-	})
+	accountService = new(AccountService)
 }

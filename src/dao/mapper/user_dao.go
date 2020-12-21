@@ -87,3 +87,20 @@ func (dao *UserDao) GetUserById(id int64) (*po.User, error) {
 	}
 	return user, nil
 }
+
+// 根据账户和密码获取用户
+func (dao *UserDao) GetUserByUserNameAndPassword(username string, password string) bool {
+	user := &po.User{}
+	sql := "select * from user where user_name = ? and user_password = ?"
+	ok, err := dao.runner.Get(user, sql, username, password)
+	if err != nil || !ok {
+		logrus.Error(
+			fmt.Sprintf("根据username和password查询用户数据失败, err = %+v", err))
+		return false
+	}
+	if user == nil {
+		// 不存在
+		return false
+	}
+	return true
+}

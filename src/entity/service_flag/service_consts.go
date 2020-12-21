@@ -42,3 +42,14 @@ const (
 	EnvelopeAccountType       AccountType = 1
 	SystemEnvelopeAccountType AccountType = 2
 )
+
+// 用户
+type UserStatus int
+
+const (
+	USER_CREATE_SUCCESS UserStatus = 0
+	USER_EXIST          UserStatus = 1
+	USER_CREATE_FAILURE UserStatus = 2
+	USER_UPDATE_SUCCESS UserStatus = 3
+	USER_UPDATE_FAILURE UserStatus = 4
+)

@@ -183,3 +183,24 @@ func TestUserDao_UpdateUser(t *testing.T) {
 		})
 	})
 }
+
+func TestUserDao_GetUserByUserNameAndPassword(t *testing.T) {
+	Convey("TestUserDao_GetUserByUserNameAndPassword", t, func() {
+		base.DbxDatabase().Tx(func(runner *dbx.TxRunner) error {
+			user := &po.User{
+				UserName:     utils.GetUUID(),
+				UserPassword: "GetUserByUserNameAndPassword",
+			}
+			// 插入测试用户
+			userDao := NewUserDao(runner)
+			rows, err := userDao.Insert(user)
+			So(err, ShouldBeNil)
+			So(rows, ShouldBeGreaterThan, 0)
+			// 取用户看是否存在
+			exist := userDao.GetUserByUserNameAndPassword(user.UserName, user.UserPassword)
+			So(exist, ShouldBeTrue)
+			runner.Rollback()
+			return nil
+		})
+	})
+}
