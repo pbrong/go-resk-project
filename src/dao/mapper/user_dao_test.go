@@ -197,8 +197,8 @@ func TestUserDao_GetUserByUserNameAndPassword(t *testing.T) {
 			So(err, ShouldBeNil)
 			So(rows, ShouldBeGreaterThan, 0)
 			// 取用户看是否存在
-			exist := userDao.GetUserByUserNameAndPassword(user.UserName, user.UserPassword)
-			So(exist, ShouldBeTrue)
+			userDTO := userDao.GetUserByUserNameAndPassword(user.UserName, user.UserPassword)
+			So(userDTO, ShouldNotBeNil)
 			runner.Rollback()
 			return nil
 		})

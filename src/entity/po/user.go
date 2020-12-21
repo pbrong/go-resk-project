@@ -1,6 +1,9 @@
 package po
 
-import "time"
+import (
+	"go-resk/src/entity/dto"
+	"time"
+)
 
 // 映射user表,存储用户信息
 type User struct {
@@ -10,4 +13,13 @@ type User struct {
 	UserPassword string    `db:"user_password"`
 	GmtCreated   time.Time `db:"gmt_created,omitempty"`
 	GmtModified  time.Time `db:"gmt_modified,omitempty"`
+}
+
+func (user *User) ToDTO() *dto.UserDTO {
+	userDTO := &dto.UserDTO{
+		Id:       user.Id,
+		UserId:   user.UserId,
+		UserName: user.UserName,
+	}
+	return userDTO
 }
